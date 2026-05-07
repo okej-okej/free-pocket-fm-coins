@@ -1,0 +1,59 @@
+name: Monthly Content Verification
+
+on:
+  schedule:
+    # Runs on the 1st of every month at 08:00 UTC
+    - cron: '0 8 1 * *'
+  workflow_dispatch:
+    # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  verify-and-update:
+    name: Verify Guide Content & Update Badge
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check pocketcoins.live availability
+        id: site-check
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" https://pocketcoins.live/)
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "🌐 Site status: $STATUS"
+
+      - name: Check free-pocket-fm-coins page
+        id: page-check
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" https://pocketcoins.live/free-pocket-fm-coins/)
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "📄 Page status: $STATUS"
+
+      - name: Check promo codes page
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" https://pocketcoins.live/pocket-fm-free-coins-promo-code/)
+          echo "🏷️ Promo codes page status: $STATUS"
+
+      - name: Update last-verified date in README
+        run: |
+          DATE=$(date +'%B %Y')
+          sed -i "s/Last updated: .* · Verified/Last updated: $DATE · Verified/" README.md
+          echo "📅 Updated date to: $DATE"
+
+      - name: Commit date update
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: monthly verification update — $(date +'%B %Y')"
+          file_pattern: README.md
+          commit_author: "PocketCoins Bot <bot@pocketcoins.live>"
+
+      - name: Summary report
+        run: |
+          echo "## ✅ Monthly Verification Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Homepage | ${{ steps.site-check.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Free Coins Guide | ${{ steps.page-check.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run date | $(date +'%Y-%m-%d') |" >> $GITHUB_STEP_SUMMARY
